@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Playwright Pilot",
+  "version": "1.0.0",
+  "description": "Record browser interactions, generate Playwright E2E test scripts with AI, manage test suites, and export production-ready .spec.ts files.",
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "downloads", "alarms", "tabCapture", "offscreen"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Playwright Pilot"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

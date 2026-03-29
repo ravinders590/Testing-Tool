@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Playwright Pilot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-left">
+      <svg class="logo" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      <span class="header-title">Playwright Pilot</span>
+    </div>
+    <div class="header-right">
+      <button id="btnSettings" class="icon-btn" title="Settings">
+        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
+          <path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.038.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.103-.303c-.065-.019-.175-.011-.299.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.05-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.038-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.065.019.175.011.299-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.055.645 6.6.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.532.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.563-.154 1.116.008 1.533.270.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.532-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.563.154-1.116-.008-1.533-.27a4.778 4.778 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== STATE: NO TOKEN ===== -->
+  <div id="stateNoToken" class="state">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      <p class="empty-title">No GitHub token configured</p>
+      <p class="empty-sub">Add a GitHub Personal Access Token to connect repos and generate Playwright tests with AI.</p>
+      <button id="btnGoSettings" class="btn btn-primary">Open Settings</button>
+    </div>
+  </div>
+
+  <!-- ===== STATE: LOADING ===== -->
+  <div id="stateLoading" class="state hidden">
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <p id="loadingMsg">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ===== STATE: MAIN ===== -->
+  <div id="stateMain" class="state hidden">
+
+    <!-- Selected repo chip -->
+    <div id="repoChip" class="repo-chip hidden">
+      <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor" style="flex-shrink:0;color:var(--text3)">
+        <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8z"/>
+      </svg>
+      <span id="repoChipName"></span>
+    </div>
+
+    <!-- Tab bar -->
+    <nav class="tab-bar" role="tablist">
+      <button class="tab active" data-tab="recorder" role="tab" aria-selected="true">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="8" cy="8" r="4" fill="currentColor"/></svg>
+        Record
+      </button>
+      <button class="tab" data-tab="tests" role="tab" aria-selected="false">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+        Tests
+      </button>
+      <button class="tab" data-tab="generate" role="tab" aria-selected="false">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.43Z"/></svg>
+        AI Generate
+      </button>
+      <button class="tab" data-tab="suites" role="tab" aria-selected="false">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1M1.5 2.75v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25M11.75 3a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-1.5 0v-7.5a.75.75 0 0 1 .75-.75m-8.25.75a.75.75 0 0 1 1.5 0v5.5a.75.75 0 0 1-1.5 0ZM8 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 3"/></svg>
+        Suites
+      </button>
+      <button class="tab" data-tab="audit" role="tab" aria-selected="false">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M7.467.133a1.748 1.748 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.697 1.697 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Zm.61 1.429a.25.25 0 0 0-.153 0l-5.25 1.68a.25.25 0 0 0-.174.238V7c0 1.358.275 2.666 1.057 3.86.784 1.194 2.121 2.34 4.366 3.297a.2.2 0 0 0 .154 0c2.245-.956 3.582-2.104 4.366-3.298C13.225 9.666 13.5 8.36 13.5 7V3.48a.251.251 0 0 0-.174-.237l-5.25-1.68ZM8.75 4.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 1.5 0ZM9 10.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
+        Audit
+      </button>
+    </nav>
+
+    <!-- ── RECORDER TAB ── -->
+    <div id="tabRecorder" class="tab-pane">
+      <div class="recorder-controls">
+        <div class="recorder-status">
+          <span id="recorderIndicator" class="rec-indicator"></span>
+          <span id="recorderStatusText">Ready to record</span>
+          <span id="recorderTimer" class="rec-timer hidden">00:00</span>
+        </div>
+        <div class="recorder-actions">
+          <button id="btnStartRecord" class="btn btn-record" title="Start recording">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><circle cx="8" cy="8" r="6"/></svg>
+            Start
+          </button>
+          <button id="btnStopRecord" class="btn btn-outline" title="Stop recording" disabled>
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>
+            Stop
+          </button>
+          <button id="btnClearRecord" class="btn btn-outline btn-sm" title="Clear recorded steps" disabled>Clear</button>
+        </div>
+      </div>
+
+      <div class="recorder-options">
+        <label class="checkbox-label">
+          <input type="checkbox" id="chkAssertions" checked /> Auto-add assertions
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chkWaitStates" checked /> Smart wait states
+        </label>
+      </div>
+
+      <!-- Happy Flow Quick Start -->
+      <div id="happyFlowSection" class="happy-flow-section">
+        <div class="hf-header">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="color:var(--green)"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m9.78-2.22-5.5 5.5a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l5.5-5.5a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
+          <span class="hf-title">Quick Start — Happy Flow</span>
+        </div>
+        <p class="hf-desc">Run real browser tests on the current page — navigate links, submit forms, test login, or run a full site check.</p>
+        <div class="hf-options" style="display:flex;align-items:center;gap:8px;margin:6px 0 10px">
+          <label style="font-size:11px;color:var(--text2);white-space:nowrap">Max Pages</label>
+          <input type="number" id="hfMaxPages" class="text-input" value="5" min="1" max="100" style="width:56px;font-size:11px;padding:4px 6px;text-align:center" />
+          <span style="font-size:10px;color:var(--text3)">pages to test per flow</span>
+        </div>
+        <div class="hf-cards">
+          <button class="hf-card" data-flow="navigation">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06"/></svg>
+            <span class="hf-card-title">Page Navigation</span>
+            <span class="hf-card-desc">Visit every page, check internal links work</span>
+          </button>
+          <button class="hf-card" data-flow="form">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25ZM6.5 6.5v8h7.75a.25.25 0 0 0 .25-.25V6.5Zm8-1.5V1.75a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25V5ZM5 6.5H1.5v7.75c0 .138.112.25.25.25H5Z"/></svg>
+            <span class="hf-card-title">Form Submit</span>
+            <span class="hf-card-desc">Find forms, fill dummy data, check validation</span>
+          </button>
+          <button class="hf-card" data-flow="login">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M9.585.52a2.678 2.678 0 0 0-3.17 0l-.928.68a1.178 1.178 0 0 1-.518.215L3.83 1.59a2.678 2.678 0 0 0-2.24 2.24l-.175 1.14a1.178 1.178 0 0 1-.215.518l-.68.928a2.678 2.678 0 0 0 0 3.17l.68.928c.113.153.186.33.215.518l.175 1.138a2.678 2.678 0 0 0 2.24 2.24l1.138.175c.187.029.365.102.518.215l.928.68a2.678 2.678 0 0 0 3.17 0l.928-.68a1.17 1.17 0 0 1 .518-.215l1.138-.175a2.678 2.678 0 0 0 2.241-2.24l.175-1.138c.029-.187.102-.365.215-.518l.68-.928a2.678 2.678 0 0 0 0-3.17l-.68-.928a1.179 1.179 0 0 1-.215-.518L14.41 3.83a2.678 2.678 0 0 0-2.24-2.24l-1.138-.175a1.179 1.179 0 0 1-.518-.215ZM7.303 1.728c.415-.305.979-.305 1.394 0l.928.68c.348.256.752.423 1.18.489l1.136.174c.51.078.909.478.987.987l.174 1.137c.066.427.233.831.489 1.18l.68.927c.305.415.305.98 0 1.394l-.68.928a2.678 2.678 0 0 0-.489 1.18l-.174 1.136a1.178 1.178 0 0 1-.987.987l-1.137.174a2.678 2.678 0 0 0-1.18.489l-.927.68c-.415.305-.98.305-1.394 0l-.928-.68a2.678 2.678 0 0 0-1.18-.489l-1.136-.174a1.178 1.178 0 0 1-.987-.987l-.174-1.137a2.678 2.678 0 0 0-.489-1.18l-.68-.927a1.178 1.178 0 0 1 0-1.394l.68-.928c.256-.348.423-.752.489-1.18l.174-1.136c.078-.51.478-.909.987-.987l1.137-.174a2.678 2.678 0 0 0 1.18-.489ZM11.28 6.78l-3.75 3.75a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Zm-6 0a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042.018l1.25 1.25a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042-.018Z"/></svg>
+            <span class="hf-card-title">Login Flow</span>
+            <span class="hf-card-desc">Enter test email &amp; password, verify login</span>
+          </button>
+          <button class="hf-card" data-flow="link-click">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M4.75 3.5a.75.75 0 0 0 0 1.5h4.75a.25.25 0 0 1 .25.25v6.94l-1.72-1.72a.749.749 0 0 0-1.275.326.749.749 0 0 0 .215.734l2.97 2.97a.75.75 0 0 0 1.06 0l2.97-2.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L11.25 12.19V5.25a1.75 1.75 0 0 0-1.75-1.75Z"/></svg>
+            <span class="hf-card-title">Link Click Test</span>
+            <span class="hf-card-desc">Click every internal link on each page, verify loads</span>
+          </button>
+          <button class="hf-card" data-flow="full">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.43Z"/></svg>
+            <span class="hf-card-title">Full Fledge</span>
+            <span class="hf-card-desc">Everything: pages, forms, links, sitemap, login</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="recordedSteps" class="recorded-steps">
+        <p class="task-empty">No steps recorded yet. Click <strong>Start</strong> to begin recording browser interactions.</p>
+      </div>
+
+      <div id="recorderFooter" class="recorder-footer hidden">
+        <span id="stepCount" class="step-count">0 steps</span>
+        <div class="footer-actions">
+          <button id="btnDownloadRecordingVideo" class="btn btn-outline btn-sm hidden" title="Download video recording">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM6 10.559V5.442a.25.25 0 0 1 .379-.215l4.264 2.559a.25.25 0 0 1 0 .428L6.379 10.773A.25.25 0 0 1 6 10.559Z"/></svg>
+            Video
+          </button>
+          <button id="btnPreview" class="btn btn-outline btn-sm">Preview Code</button>
+          <button id="btnRunRecording" class="btn btn-success btn-sm" title="Run recorded test in browser">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+            Run
+          </button>
+          <button id="btnExportRecording" class="btn btn-primary btn-sm">Export .test.js</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TESTS TAB ── -->
+    <div id="tabTests" class="tab-pane hidden">
+      <!-- Saved Reports Section -->
+      <div class="pane-toolbar">
+        <input id="reportSearch" class="search-input" type="text" placeholder="Search saved reports…" autocomplete="off" spellcheck="false" />
+        <button id="btnClearAllReports" class="icon-btn" title="Delete all reports">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75M6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25M3.086 5.5l.924 9.24A1.75 1.75 0 0 0 5.75 16h4.5a1.75 1.75 0 0 0 1.74-1.26L12.914 5.5Z"/></svg>
+        </button>
+      </div>
+      <div id="savedReportsList" class="item-list">
+        <p class="task-empty">No saved reports yet. Run tests, happy flows, or audits to generate reports.</p>
+      </div>
+
+      <!-- Expanded report view -->
+      <div id="reportDetailView" class="report-detail-view hidden">
+        <div class="report-detail-header">
+          <button id="btnBackToReports" class="btn btn-outline btn-sm">← Back</button>
+          <span id="reportDetailTitle" class="report-detail-title"></span>
+          <button id="btnExportReport" class="btn btn-primary btn-sm">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            Export PDF
+          </button>
+        </div>
+        <div id="reportDetailBody" class="report-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- ── AI GENERATE TAB ── -->
+    <div id="tabGenerate" class="tab-pane hidden">
+      <div class="generate-form">
+        <div class="field-group">
+          <label class="field-label" for="genUrl">Target URL</label>
+          <input id="genUrl" type="url" class="text-input" placeholder="https://example.com/login" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="genDescription">Test Description</label>
+          <textarea id="genDescription" class="text-input text-area" rows="3" placeholder="Describe the user flow to test, e.g.: User logs in with valid credentials, navigates to dashboard, creates a new project"></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="genFramework">Test Style</label>
+          <select id="genFramework" class="text-input text-select">
+            <option value="puppeteer-jest">Puppeteer + Jest (recommended)</option>
+            <option value="puppeteer-mocha">Puppeteer + Mocha/Chai</option>
+            <option value="puppeteer-basic">Puppeteer (standalone)</option>
+          </select>
+        </div>
+        <div class="gen-options">
+          <label class="checkbox-label"><input type="checkbox" id="genPOM" checked /> Page Object Model</label>
+          <label class="checkbox-label"><input type="checkbox" id="genAccessibility" /> Accessibility checks</label>
+          <label class="checkbox-label"><input type="checkbox" id="genVisual" /> Visual regression</label>
+          <label class="checkbox-label"><input type="checkbox" id="genAPI" /> API mocking</label>
+        </div>
+        <div class="gen-btn-row">
+          <button id="btnHappyFlow" class="btn btn-outline btn-happy" title="Generate default happy path test for current page">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m9.78-2.22-5.5 5.5a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l5.5-5.5a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
+            Happy Flow
+          </button>
+          <button id="btnGenerate" class="btn btn-primary btn-flex">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.43Z"/></svg>
+            Generate with AI
+          </button>
+          <button id="btnGenerateAndRun" class="btn btn-success btn-flex" title="Generate test with AI then run it immediately">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+            Generate &amp; Run
+          </button>
+        </div>
+      </div>
+
+      <div id="genLoading" class="loading-wrap hidden">
+        <div class="spinner"></div>
+        <p>AI is generating tests…</p>
+      </div>
+
+      <div id="genResult" class="gen-result hidden">
+        <div class="gen-result-header">
+          <span class="gen-result-title">Generated Test</span>
+          <div class="gen-result-actions">
+            <button id="btnCopyGen" class="btn btn-outline btn-sm">Copy</button>
+            <button id="btnRunGen" class="btn btn-success btn-sm" title="Run this test in browser">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+              Run
+            </button>
+            <button id="btnExportGen" class="btn btn-primary btn-sm">Export .test.js</button>
+          </div>
+        </div>
+        <pre id="genCode" class="code-block"><code></code></pre>
+      </div>
+    </div>
+
+    <!-- ── SUITES TAB ── -->
+    <div id="tabSuites" class="tab-pane hidden">
+      <div class="pane-toolbar">
+        <input id="suiteSearch" class="search-input" type="text" placeholder="Search test suites…" autocomplete="off" spellcheck="false" />
+        <button id="btnRefreshSuites" class="icon-btn" title="Refresh suites">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.001 7.001 0 0 1 14.95 7.16a.75.75 0 1 1-1.489.18A5.501 5.501 0 0 0 8 2.5M1.705 8.005a.75.75 0 0 1 .834.656 5.501 5.501 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.001 7.001 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834z"/></svg>
+        </button>
+      </div>
+      <div id="suiteList" class="item-list">
+        <p class="task-empty">Save recorded or AI-generated tests to build your test suite.</p>
+      </div>
+      <div class="suite-footer">
+        <button id="btnExportAll" class="btn btn-outline btn-sm btn-full">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+          Export All as ZIP
+        </button>
+      </div>
+    </div>
+
+    <!-- ── AUDIT TAB ── -->
+    <div id="tabAudit" class="tab-pane hidden">
+      <div class="field-group">
+        <label class="field-label" for="auditUrl">Site URL</label>
+        <input id="auditUrl" type="url" class="text-input" placeholder="https://remote.co" />
+      </div>
+
+      <div class="audit-options">
+        <label class="checkbox-label"><input type="checkbox" id="chkSitemap" checked /> Check Sitemap</label>
+        <label class="checkbox-label"><input type="checkbox" id="chkAuditLinks" checked /> Check All Links</label>
+        <label class="checkbox-label"><input type="checkbox" id="chkFreeJobs" checked /> Test Free Jobs Paywall</label>
+      </div>
+
+      <div class="audit-config">
+        <div class="field-group">
+          <label class="field-label" for="freeJobLimit">Free Job View Limit</label>
+          <input id="freeJobLimit" type="number" class="text-input" value="2" min="1" max="10" style="max-width:80px" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="maxPages">Max Pages to Audit</label>
+          <input id="maxPages" type="number" class="text-input" value="5" min="1" max="100" style="max-width:80px" />
+        </div>
+      </div>
+
+      <div class="audit-actions">
+        <button id="btnStartAudit" class="btn btn-primary">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M7.467.133a1.748 1.748 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.697 1.697 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Z"/></svg>
+          Start Audit
+        </button>
+        <button id="btnStopAudit" class="btn btn-outline" disabled>Stop</button>
+      </div>
+
+      <div id="auditProgress" class="audit-progress hidden">
+        <div class="run-progress-bar"><div id="auditProgressFill" class="run-progress-fill"></div></div>
+        <span id="auditProgressText" class="run-progress-text">Starting…</span>
+      </div>
+
+      <div id="auditLogWrap" class="audit-log-wrap hidden">
+        <div class="audit-log-header">
+          <span class="audit-log-title">Process Log</span>
+          <button id="btnClearLog" class="icon-btn" title="Clear log">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75M6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25M3.086 5.5l.924 9.24A1.75 1.75 0 0 0 5.75 16h4.5a1.75 1.75 0 0 0 1.74-1.26L12.914 5.5Z"/></svg>
+          </button>
+        </div>
+        <div id="auditLog" class="audit-log"></div>
+      </div>
+
+      <div id="auditResults" class="audit-results hidden">
+        <div class="audit-summary">
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditPagesCount">0</span>
+            <span class="audit-stat-label">Pages</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditLinksCount">0</span>
+            <span class="audit-stat-label">Links</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditBrokenCount">0</span>
+            <span class="audit-stat-label">Broken</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditPaywallStatus">&mdash;</span>
+            <span class="audit-stat-label">Paywall</span>
+          </div>
+        </div>
+        <div class="audit-summary" style="margin-top:6px">
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditSeoScore">—</span>
+            <span class="audit-stat-label">SEO</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditA11yScore">—</span>
+            <span class="audit-stat-label">A11y</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditHtmlScore">—</span>
+            <span class="audit-stat-label">HTML</span>
+          </div>
+          <div class="audit-stat">
+            <span class="audit-stat-num" id="auditMobileScore">—</span>
+            <span class="audit-stat-label">Mobile</span>
+          </div>
+        </div>
+
+        <div id="auditDetailsList" class="audit-details-list"></div>
+
+        <div class="audit-report-actions">
+          <button id="btnDownloadReport" class="btn btn-primary btn-full">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            Download PDF Report
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== PREVIEW MODAL ===== -->
+  <div id="previewModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Test Preview</span>
+        <button id="btnClosePreview" class="icon-btn" title="Close">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06"/></svg>
+        </button>
+      </div>
+      <pre id="previewCode" class="code-block"><code></code></pre>
+      <div class="modal-footer">
+        <button id="btnCopyPreview" class="btn btn-outline btn-sm">Copy</button>
+        <button id="btnRunPreview" class="btn btn-success btn-sm">
+          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+          Run
+        </button>
+        <button id="btnExportPreview" class="btn btn-primary btn-sm">Export .test.js</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RUN RESULTS MODAL ===== -->
+  <div id="runModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content run-modal-content">
+      <div class="modal-header">
+        <span class="modal-title">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
+          Test Run Results
+        </span>
+        <button id="btnCloseRun" class="icon-btn" title="Close">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06"/></svg>
+        </button>
+      </div>
+      <div id="runProgress" class="run-progress">
+        <div class="run-progress-bar"><div id="runProgressFill" class="run-progress-fill"></div></div>
+        <span id="runProgressText" class="run-progress-text">Preparing…</span>
+      </div>
+      <div id="runResultsList" class="run-results-list"></div>
+      <div class="modal-footer">
+        <div id="runSummary" class="run-summary"></div>
+        <button id="btnRerun" class="btn btn-outline btn-sm" disabled>Re-run</button>
+        <button id="btnCloseRunFooter" class="btn btn-primary btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
