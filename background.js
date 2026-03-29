@@ -121,7 +121,15 @@ async function generateTest(token, payload) {
   return { code };
 }
 
+function isPlaywrightFramework(framework) {
+  return framework && framework.startsWith('playwright');
+}
+
 function buildSystemPrompt(framework, options) {
+  if (isPlaywrightFramework(framework)) {
+    return buildPlaywrightSystemPrompt(framework, options);
+  }
+
   const fwName = framework === 'puppeteer-jest' ? 'Puppeteer + Jest'
     : framework === 'puppeteer-mocha' ? 'Puppeteer + Mocha/Chai'
     : 'Puppeteer + Jest';
@@ -145,8 +153,37 @@ RULES:
 14. Return ONLY the code. No explanations, no markdown.`;
 }
 
+function buildPlaywrightSystemPrompt(framework, options) {
+  const fwName = framework === 'playwright-test' ? '@playwright/test (recommended)'
+    : framework === 'playwright-jest' ? 'Playwright + Jest (jest-playwright)'
+    : 'Playwright (standalone script)';
+
+  const isNativeTest = framework === 'playwright-test';
+
+  return `You are an expert Playwright E2E test automation engineer. Generate production-ready test code.
+
+RULES:
+1. Use JavaScript/Node.js with ${fwName} framework.
+2. Use modern Playwright best practices: page.locator(), page.getByRole(), page.getByText(), page.getByTestId(), page.getByLabel(), page.getByPlaceholder().
+3. NEVER use fragile selectors like nth-child or absolute xpath. Prefer getByRole, getByTestId, getByLabel, getByText, and semantic locators.
+4. ${isNativeTest ? 'Use test() and expect() from @playwright/test. Use test.describe() for grouping. Use built-in fixtures (page, context, browser).' : 'Include proper test structure: describe blocks, beforeAll/afterAll for browser lifecycle.'}
+5. Add meaningful test names that describe the user story.
+6. Handle async operations properly with async/await.
+7. ${isNativeTest ? 'Use await page.waitForURL() or await page.waitForLoadState("networkidle") after navigation actions.' : 'Use page.waitForURL() or page.waitForLoadState("networkidle") after navigation actions.'}
+8. ${options.usePOM ? 'Use Page Object Model pattern. Create a class for the page with methods for each action.' : 'Write inline test code without POM.'}
+9. ${options.a11y ? 'Include accessibility checks using @axe-core/playwright.' : 'Skip accessibility checks.'}
+10. ${options.visual ? 'Include visual comparisons using await expect(page).toHaveScreenshot().' : 'Skip visual regression.'}
+11. ${options.apiMock ? 'Mock API endpoints using page.route() to intercept and fulfill requests.' : 'Do not mock APIs.'}
+12. ${isNativeTest ? 'Use test.use({ viewport: { width: 1280, height: 720 } }) or configure in playwright.config.' : 'Launch browser with chromium.launch() and set viewport { width: 1280, height: 720 }.'}
+13. ${isNativeTest ? 'Playwright Test handles browser lifecycle automatically — do NOT manually launch/close browsers.' : 'Always close browser in afterAll block.'}
+14. Use Playwright assertions: await expect(locator).toBeVisible(), toHaveText(), toContainText(), toHaveValue(), etc.
+15. Return ONLY the code. No explanations, no markdown.`;
+}
+
 function buildUserPrompt(url, description, framework, options) {
-  let prompt = `Generate a complete Puppeteer E2E test for the following scenario:\n\n`;
+  const isPW = isPlaywrightFramework(framework);
+  const toolName = isPW ? 'Playwright' : 'Puppeteer';
+  let prompt = `Generate a complete ${toolName} E2E test for the following scenario:\n\n`;
 
   if (url) prompt += `Target URL: ${url}\n`;
   prompt += `Test Description: ${description}\n`;
@@ -154,8 +191,13 @@ function buildUserPrompt(url, description, framework, options) {
 
   prompt += `Requirements:\n`;
   prompt += `- Use descriptive test names\n`;
-  prompt += `- Add proper assertions for each step (expect from Jest or assert from Chai)\n`;
-  prompt += `- Handle loading states with waitForSelector and waitForNetworkIdle\n`;
+  if (isPW) {
+    prompt += `- Add proper assertions using Playwright expect (toBeVisible, toHaveText, toContainText, etc.)\n`;
+    prompt += `- Handle loading states with page.waitForLoadState() and locator auto-waiting\n`;
+  } else {
+    prompt += `- Add proper assertions for each step (expect from Jest or assert from Chai)\n`;
+    prompt += `- Handle loading states with waitForSelector and waitForNetworkIdle\n`;
+  }
 
   if (options.usePOM) {
     prompt += `- Implement Page Object Model pattern\n`;
@@ -190,9 +232,25 @@ async function generateHappyFlow(token, payload) {
   if (!payload) throw new Error('Missing happy flow parameters.');
   if (!token) throw new Error('GitHub token not configured. Go to Settings.');
 
-  const { url, flowType, pageTitle, pageElements } = payload;
+  const { url, flowType, pageTitle, pageElements, framework } = payload;
+  const isPW = isPlaywrightFramework(framework);
 
-  const systemPrompt = `You are an expert Puppeteer E2E test automation engineer.
+  const systemPrompt = isPW
+    ? `You are an expert Playwright E2E test automation engineer.
+Generate a production-ready default happy path test that validates the core user journey.
+
+RULES:
+1. Use JavaScript with @playwright/test framework.
+2. Use modern Playwright APIs: page.locator(), page.getByRole(), page.getByText(), page.getByTestId(), page.getByLabel(), page.getByPlaceholder().
+3. NEVER use fragile selectors. Prefer getByRole, getByTestId, getByLabel, getByText, and semantic locators.
+4. Add meaningful assertions using Playwright expect (toBeVisible, toHaveText, toContainText, toHaveURL, etc.) after every significant action.
+5. Include proper test.describe/test blocks with descriptive names.
+6. Use page.waitForURL() or page.waitForLoadState("networkidle") after navigations.
+7. Handle async/await correctly.
+8. Use test fixtures (page, context, browser) — do NOT manually launch/close browsers.
+9. Use test.use({ viewport: { width: 1280, height: 720 } }) to set viewport.
+10. Return ONLY the code. No explanations, no markdown syntax.`
+    : `You are an expert Puppeteer E2E test automation engineer.
 Generate a production-ready default happy path test that validates the core user journey.
 
 RULES:
@@ -325,7 +383,7 @@ async function startRecordingSession(payload) {
 }
 
 async function stopRecordingSession() {
-  if (!recorderState.active) return { steps: [], videoDataUrl: null };
+  if (!recorderState.active) return { steps: [], videoDataUrl: null, videoInIdb: false };
 
   recorderState.active = false;
   const steps = [...recorderState.steps];
@@ -338,12 +396,16 @@ async function stopRecordingSession() {
 
   // Stop video and get data
   let videoDataUrl = null;
+  let videoInIdb = false;
   try {
     const res = await stopManualVideoRecording();
     videoDataUrl = res?.videoDataUrl || null;
-  } catch { /* ignore */ }
+    videoInIdb = res?.videoInIdb || false;
+  } catch (e) {
+    console.warn('[Recorder] Video stop error:', e.message);
+  }
 
-  const result = { steps, videoDataUrl, startedAt: recorderState.startedAt };
+  const result = { steps, videoDataUrl, videoInIdb, startedAt: recorderState.startedAt };
 
   // Reset
   recorderState.tabId = null;
@@ -401,8 +463,18 @@ async function recordTabSegment(tabId) {
 
 async function saveTabSegment(label) {
   if (!videoState.active) return;
-  const seg = await stopTabRecording();
-  if (seg) videoState.segments.push({ label, dataUrl: seg, ts: Date.now() });
+  // Generate a unique IDB key per segment to avoid overwriting previous segments
+  const segKey = `__hf_segment_${Date.now()}_${videoState.segments.length}`;
+  const result = await stopTabRecording(segKey);
+  if (result?.dataUrl) {
+    videoState.segments.push({ label, dataUrl: result.dataUrl, idbKey: segKey, ts: Date.now() });
+  } else if (result?.savedToIdb) {
+    // Video saved to IDB but too large for message — store the IDB key reference
+    videoState.segments.push({ label, idbKey: result.idbKey || segKey, savedToIdb: true, ts: Date.now() });
+  } else {
+    // Recording failed for this segment — still track it so popup can attempt IDB lookup
+    videoState.segments.push({ label, idbKey: segKey, failed: true, ts: Date.now() });
+  }
 }
 
 async function ensureOffscreenDocument() {
@@ -426,34 +498,70 @@ async function closeOffscreenDocument() {
   } catch { /* already closed */ }
 }
 
+/* ── Screen-capture state (interval-based via captureVisibleTab) ── */
+const screenCapture = { active: false, intervalId: null, tabId: null, windowId: null };
+
 async function startTabRecording(tabId) {
   try {
-    // Make the tab active + focused (required for tabCapture)
+    // Stop any existing capture first
+    if (screenCapture.active) {
+      screenCapture.active = false;
+      if (screenCapture.intervalId) { clearInterval(screenCapture.intervalId); screenCapture.intervalId = null; }
+    }
+
     const tabInfo = await chrome.tabs.get(tabId);
 
-    // Skip recording for chrome://, about:, or extension pages — tabCapture cannot capture these
+    // Skip recording for chrome://, about:, or extension pages
     const tabUrl = tabInfo.url || tabInfo.pendingUrl || '';
     if (!tabUrl || tabUrl.startsWith('chrome') || tabUrl.startsWith('about:') || tabUrl.startsWith('edge:')) {
       return false;
     }
 
+    // Make the tab active + focused (required for captureVisibleTab)
     await chrome.tabs.update(tabId, { active: true });
     await chrome.windows.update(tabInfo.windowId, { focused: true });
     await delay(300);
 
     await ensureOffscreenDocument();
 
-    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-
-    const response = await chrome.runtime.sendMessage({
-      type: 'OFFSCREEN_START_RECORDING',
-      streamId,
+    // Initialize canvas-based video recorder in offscreen document
+    const initResp = await chrome.runtime.sendMessage({
+      type: 'OFFSCREEN_INIT_VIDEO',
+      width: 1280,
+      height: 720,
     });
-
-    if (response?.error) {
-      console.warn('[Video] Start recording failed:', response.error);
+    if (initResp?.error) {
+      console.warn('[Video] Init recording failed:', initResp.error);
       return false;
     }
+
+    // Capture first frame immediately
+    try {
+      const frame = await chrome.tabs.captureVisibleTab(tabInfo.windowId, { format: 'jpeg', quality: 70 });
+      chrome.runtime.sendMessage({ type: 'OFFSCREEN_ADD_FRAME', dataUrl: frame }).catch(() => {});
+    } catch { /* first frame optional */ }
+
+    // Start interval capture at ~2 FPS
+    screenCapture.active = true;
+    screenCapture.tabId = tabId;
+    screenCapture.windowId = tabInfo.windowId;
+    screenCapture.intervalId = setInterval(async () => {
+      if (!screenCapture.active) {
+        clearInterval(screenCapture.intervalId);
+        screenCapture.intervalId = null;
+        return;
+      }
+      try {
+        // Re-read tab to get current windowId (may have changed)
+        const tab = await chrome.tabs.get(screenCapture.tabId);
+        if (!tab) return;
+        const frame = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 70 });
+        chrome.runtime.sendMessage({ type: 'OFFSCREEN_ADD_FRAME', dataUrl: frame }).catch(() => {});
+      } catch {
+        // Tab closed, not visible, or capture failed — skip this frame
+      }
+    }, 500);
+
     return true;
   } catch (err) {
     console.warn('[Video] startTabRecording error:', err.message);
@@ -461,17 +569,26 @@ async function startTabRecording(tabId) {
   }
 }
 
-async function stopTabRecording() {
+async function stopTabRecording(idbKey) {
+  // Stop the screenshot interval
+  screenCapture.active = false;
+  if (screenCapture.intervalId) {
+    clearInterval(screenCapture.intervalId);
+    screenCapture.intervalId = null;
+  }
+
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'OFFSCREEN_STOP_RECORDING',
+      idbKey: idbKey || undefined,
     });
-    if (response?.dataUrl) return response.dataUrl;
+    if (response?.dataUrl) return { dataUrl: response.dataUrl, savedToIdb: response.savedToIdb || false, idbKey: response.idbKey };
+    if (response?.savedToIdb) return { dataUrl: null, savedToIdb: true, idbKey: response.idbKey };
     if (response?.error) console.warn('[Video] Stop recording error:', response.error);
-    return null;
+    return { dataUrl: null, savedToIdb: false };
   } catch (err) {
     console.warn('[Video] stopTabRecording error:', err.message);
-    return null;
+    return { dataUrl: null, savedToIdb: false };
   }
 }
 
@@ -513,12 +630,12 @@ async function startManualVideoRecording(payload) {
 }
 
 async function stopManualVideoRecording() {
-  if (!manualRecordingActive) return { videoDataUrl: null };
+  if (!manualRecordingActive) return { videoDataUrl: null, videoInIdb: false };
 
   manualRecordingActive = false;
-  const dataUrl = await stopTabRecording();
+  const result = await stopTabRecording();
   await closeOffscreenDocument();
-  return { videoDataUrl: dataUrl };
+  return { videoDataUrl: result.dataUrl || null, videoInIdb: result.savedToIdb || false };
 }
 
 /* ── Happy Flow Execution Engine ── */
@@ -531,18 +648,36 @@ function logHF(level, message) {
 function getHappyFlowStatus() {
   return {
     running: happyFlowState.running,
-    results: happyFlowState.results,
+    results: stripVideoDataForMessage(happyFlowState.results),
     logs: happyFlowState.logs,
+  };
+}
+
+function stripVideoDataForMessage(results) {
+  if (!results?.videoSegments?.length) return results;
+  return {
+    ...results,
+    videoSegments: results.videoSegments.map((s) => ({
+      label: s.label,
+      ts: s.ts,
+      idbKey: s.idbKey,
+      savedToIdb: s.savedToIdb,
+      hasData: !!s.dataUrl || !!s.savedToIdb,
+      failed: s.failed || false,
+    })),
+    _hasVideo: true,
   };
 }
 
 function getPendingHFResult() {
   if (happyFlowState.pendingResult) {
-    return { ...happyFlowState.pendingResult };
+    const pr = { ...happyFlowState.pendingResult };
+    if (pr.results) pr.results = stripVideoDataForMessage(pr.results);
+    return pr;
   }
   // Also check if flow just finished (popup missed it)
   if (!happyFlowState.running && happyFlowState.results && !happyFlowState.results.error) {
-    return { results: happyFlowState.results, flowType: happyFlowState.results.flowType || 'full' };
+    return { results: stripVideoDataForMessage(happyFlowState.results), flowType: happyFlowState.results.flowType || 'full' };
   }
   return null;
 }
@@ -634,6 +769,13 @@ async function runHappyFlowAsync(url, flowType, testEmail, testPassword, maxPage
   // Finalize video recording
   videoState.active = false;
   results.videoSegments = videoState.segments.filter(Boolean);
+  const capturedCount = results.videoSegments.filter((s) => !s.failed).length;
+  const failedCount = results.videoSegments.filter((s) => s.failed).length;
+  if (capturedCount > 0) {
+    logHF('info', `Video: ${capturedCount} segment${capturedCount > 1 ? 's' : ''} captured${failedCount ? `, ${failedCount} failed` : ''}`);
+  } else if (failedCount > 0) {
+    logHF('warn', `Video: recording failed for all ${failedCount} segments — tab capture may not be available`);
+  }
   videoState.segments = [];
   await closeOffscreenDocument();
 
@@ -664,8 +806,8 @@ async function autoSaveHappyFlowReport(results, flowType) {
     } catch (e) {
       console.warn('[HF] Video segments too large for storage:', e.message);
     }
-    // Keep only labels in the report
-    report.data.videoSegments = videoSegments.map((s) => ({ label: s.label, ts: s.ts }));
+    // Keep labels and IDB keys in the report (strip large dataUrl strings)
+    report.data.videoSegments = videoSegments.map((s) => ({ label: s.label, ts: s.ts, idbKey: s.idbKey, savedToIdb: s.savedToIdb }));
     report.data._hasVideo = true;
   }
 

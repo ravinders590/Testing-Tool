@@ -3,7 +3,7 @@
   "name": "Playwright Pilot",
   "version": "1.0.0",
   "description": "Record browser interactions, generate Playwright E2E test scripts with AI, manage test suites, and export production-ready .spec.ts files.",
-  "permissions": ["storage", "activeTab", "scripting", "tabs", "downloads", "alarms", "tabCapture", "offscreen"],
+  "permissions": ["storage", "unlimitedStorage", "activeTab", "scripting", "tabs", "downloads", "alarms", "offscreen"],
   "host_permissions": [
     "<all_urls>"
   ],

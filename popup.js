@@ -114,6 +114,18 @@
     } catch (err) { console.warn('[VideoDb] clear error:', err.message); }
   }
 
+  async function getAllVideoKeysFromDb() {
+    try {
+      const db = await openVideoDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(VIDEO_STORE, 'readonly');
+        const req = tx.objectStore(VIDEO_STORE).getAllKeys();
+        req.onsuccess = () => { db.close(); resolve(req.result || []); };
+        req.onerror = () => { db.close(); reject(req.error); };
+      });
+    } catch (err) { console.warn('[VideoDb] getAllKeys error:', err.message); return []; }
+  }
+
   /* ── Tab Management ── */
   function initTabs() {
     $$('.tab').forEach((tab) => {
@@ -193,6 +205,8 @@
 
     stopTimer();
 
+    let videoInIdb = false;
+
     // Stop recording via background — get all steps + video
     try {
       const res = await chrome.runtime.sendMessage({ type: 'STOP_RECORDING' });
@@ -202,8 +216,26 @@
       if (res?.videoDataUrl) {
         recorderVideoDataUrl = res.videoDataUrl;
       }
+      videoInIdb = res?.videoInIdb || false;
     } catch (err) {
       console.warn('[Recorder] Stop failed:', err.message);
+    }
+
+    // Fallback: if no dataUrl from message, try loading from IndexedDB
+    if (!recorderVideoDataUrl && videoInIdb) {
+      try {
+        const videoData = await getVideoFromDb('__latest_recording');
+        if (videoData?.blob) {
+          const reader = new FileReader();
+          recorderVideoDataUrl = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(videoData.blob);
+          });
+        }
+      } catch (e) {
+        console.warn('[Recorder] IDB video load failed:', e);
+      }
     }
 
     $('#recorderStatusText').textContent = `Recorded ${recordedSteps.length} steps`;
@@ -212,9 +244,10 @@
       renderSteps();
       $('#recorderFooter').classList.remove('hidden');
       $('#stepCount').textContent = `${recordedSteps.length} step${recordedSteps.length === 1 ? '' : 's'}`;
-      // Show/hide video download button
+      // Show/hide video download button — show if we have dataUrl OR video was saved to IDB
+      const hasVideo = !!recorderVideoDataUrl || videoInIdb;
       const vidBtn = $('#btnDownloadRecordingVideo');
-      if (vidBtn) vidBtn.classList.toggle('hidden', !recorderVideoDataUrl);
+      if (vidBtn) vidBtn.classList.toggle('hidden', !hasVideo);
 
       // Auto-save recording to Tests tab
       try {
@@ -227,6 +260,7 @@
           title: activeTab?.title || '',
         };
         if (recorderVideoDataUrl) reportData.videoDataUrl = recorderVideoDataUrl;
+        reportData._hasVideo = !!recorderVideoDataUrl || videoInIdb;
         const host = activeTab?.url ? new URL(activeTab.url).hostname : 'page';
         await saveReport(`Recording — ${recordedSteps.length} steps on ${host}`, 'recording', reportData);
       } catch (e) {
@@ -307,10 +341,27 @@
     }
   }
 
-  /* ── Code Generation (Puppeteer) ── */
+  /* ── Code Generation ── */
   function escJsStr(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
+  function getSelectedFramework() {
+    return $('#genFramework')?.value || 'puppeteer-jest';
+  }
+
+  function isPlaywrightFw(fw) {
+    return fw && fw.startsWith('playwright');
+  }
+
   function generatePlaywrightCode(steps, options = {}) {
+    const fw = getSelectedFramework();
+    if (isPlaywrightFw(fw)) {
+      return generatePlaywrightNativeCode(steps, options, fw);
+    }
+    return generatePuppeteerCode(steps, options);
+  }
+
+  /* ── Puppeteer Code Generation ── */
+  function generatePuppeteerCode(steps, options = {}) {
     const lines = [];
     lines.push(`const puppeteer = require('puppeteer');`);
     lines.push('');
@@ -421,6 +472,143 @@
 
     lines.push(`  }, 30000);`);
     lines.push('});');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ── Playwright Code Generation ── */
+  function generatePlaywrightNativeCode(steps, options = {}, framework = 'playwright-test') {
+    const lines = [];
+    const isNativeTest = framework === 'playwright-test';
+
+    if (isNativeTest) {
+      lines.push(`const { test, expect } = require('@playwright/test');`);
+      lines.push('');
+      lines.push(`test.describe('Recorded test - ${new Date().toISOString().slice(0, 10)}', () => {`);
+      lines.push(`  test.use({ viewport: { width: 1280, height: 720 } });`);
+      lines.push('');
+      lines.push(`  test('should complete the recorded flow', async ({ page }) => {`);
+    } else if (framework === 'playwright-jest') {
+      lines.push(`const { chromium } = require('playwright');`);
+      lines.push('');
+      lines.push(`describe('Recorded test - ${new Date().toISOString().slice(0, 10)}', () => {`);
+      lines.push(`  let browser, context, page;`);
+      lines.push('');
+      lines.push(`  beforeAll(async () => {`);
+      lines.push(`    browser = await chromium.launch();`);
+      lines.push(`    context = await browser.newContext({ viewport: { width: 1280, height: 720 } });`);
+      lines.push(`    page = await context.newPage();`);
+      lines.push(`  });`);
+      lines.push('');
+      lines.push(`  afterAll(async () => {`);
+      lines.push(`    await browser.close();`);
+      lines.push(`  });`);
+      lines.push('');
+      lines.push(`  it('should complete the recorded flow', async () => {`);
+    } else {
+      // standalone
+      lines.push(`const { chromium } = require('playwright');`);
+      lines.push('');
+      lines.push(`(async () => {`);
+      lines.push(`  const browser = await chromium.launch();`);
+      lines.push(`  const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });`);
+      lines.push(`  const page = await context.newPage();`);
+      lines.push('');
+      lines.push(`  try {`);
+    }
+
+    const indent = framework === 'playwright-basic' ? '    ' : '    ';
+
+    for (const step of steps) {
+      const sel = escJsStr(step.selector);
+      const val = escJsStr(step.value);
+      switch (step.action) {
+        case 'navigate':
+          lines.push(`${indent}await page.goto('${escJsStr(step.url)}', { waitUntil: 'networkidle' });`);
+          break;
+        case 'click':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').click();`);
+          }
+          break;
+        case 'dblclick':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').dblclick();`);
+          }
+          break;
+        case 'fill':
+          if (step.selector && step.value !== undefined) {
+            lines.push(`${indent}await page.locator('${sel}').fill('${val}');`);
+          }
+          break;
+        case 'press':
+          if (step.selector && step.key) {
+            lines.push(`${indent}await page.locator('${sel}').press('${escJsStr(step.key)}');`);
+          }
+          break;
+        case 'select':
+          if (step.selector && step.value) {
+            lines.push(`${indent}await page.locator('${sel}').selectOption('${val}');`);
+          }
+          break;
+        case 'check':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').check();`);
+          }
+          break;
+        case 'uncheck':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').uncheck();`);
+          }
+          break;
+        case 'hover':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').hover();`);
+          }
+          break;
+        case 'scroll':
+          lines.push(`${indent}await page.evaluate(() => window.scrollBy(${step.deltaX || 0}, ${step.deltaY || 0}));`);
+          break;
+        case 'assert-visible':
+          if (step.selector) {
+            lines.push(`${indent}await expect(page.locator('${sel}')).toBeVisible();`);
+          }
+          break;
+        case 'assert-text':
+          if (step.selector && step.text) {
+            lines.push(`${indent}await expect(page.locator('${sel}')).toContainText('${escJsStr(step.text)}');`);
+          }
+          break;
+        case 'screenshot':
+          lines.push(`${indent}await page.screenshot({ path: 'screenshot-step-${step.stepIndex || 0}.png' });`);
+          break;
+        case 'wait':
+          if (step.selector) {
+            lines.push(`${indent}await page.locator('${sel}').waitFor({ state: 'visible' });`);
+          }
+          break;
+        default:
+          lines.push(`${indent}// ${step.action}: ${step.description || 'unknown action'}`);
+      }
+
+      if (options.waitStates && ['click', 'fill', 'press', 'select'].includes(step.action)) {
+        lines.push(`${indent}await page.waitForLoadState('networkidle');`);
+      }
+    }
+
+    if (isNativeTest) {
+      lines.push(`  });`);
+      lines.push('});');
+    } else if (framework === 'playwright-jest') {
+      lines.push(`  }, 30000);`);
+      lines.push('});');
+    } else {
+      lines.push(`  } finally {`);
+      lines.push(`    await browser.close();`);
+      lines.push(`  }`);
+      lines.push(`})();`);
+    }
+
     lines.push('');
     return lines.join('\n');
   }
@@ -788,6 +976,20 @@
     // Wire export button
     const exportBtn = $('#btnExportReport');
     exportBtn.onclick = () => exportReportAsPdf(report);
+
+    // Show/hide .test.js and .spec.js download buttons for happy-flow reports
+    const testJsBtn = $('#btnExportReportTestJs');
+    const specJsBtn = $('#btnExportReportSpecJs');
+    if (report.type === 'happy-flow' && report.data) {
+      testJsBtn.classList.remove('hidden');
+      specJsBtn.classList.remove('hidden');
+      const flowType = report.data.flowType || 'full';
+      testJsBtn.onclick = () => downloadHappyFlowScript(report.data, flowType);
+      specJsBtn.onclick = () => downloadHappyFlowPlaywrightScript(report.data, flowType);
+    } else {
+      testJsBtn.classList.add('hidden');
+      specJsBtn.classList.add('hidden');
+    }
   }
 
   function hideReportDetail() {
@@ -1322,6 +1524,10 @@
           </svg>
           <span class="hf-title">Running ${flowType} flow…</span>
         </div>
+        <div class="hf-recording-badge" style="display:flex;align-items:center;gap:6px;margin:6px 0;padding:4px 8px;background:rgba(255,0,0,0.08);border-radius:6px;font-size:11px;color:var(--red)">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse-rec 1.2s infinite"></span>
+          Recording video…
+        </div>
         <div class="audit-progress" style="margin:8px 0"><div class="audit-progress-bar" style="width:0%"></div></div>
         <div id="hfLogArea" class="audit-log" style="max-height:200px;overflow-y:auto;font-size:11px;margin:8px 0"></div>
         <div style="margin-top:8px;text-align:center">
@@ -1526,9 +1732,17 @@
     html += `
         <div class="report-action-bar">
           <button class="btn btn-outline btn-sm" id="btnHFBack">← Back</button>
+          <button class="btn btn-outline btn-sm" id="btnHFDownloadVideo" style="border-color:var(--red);color:var(--red)">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM6 10.559V5.442a.25.25 0 0 1 .379-.215l4.264 2.559a.25.25 0 0 1 0 .428L6.379 10.773A.25.25 0 0 1 6 10.559Z"/></svg>
+            Download Video
+          </button>
           <button class="btn btn-success btn-sm" id="btnHFScript">
             <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
             Download .test.js
+          </button>
+          <button class="btn btn-outline btn-sm" id="btnHFScriptPW" style="border-color:#2ea043;color:#2ea043">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            Playwright .spec.js
           </button>
           <button class="btn btn-primary btn-sm" id="btnHFPdf">📄 Download PDF</button>
         </div>
@@ -1540,16 +1754,68 @@
     document.getElementById('btnHFBack')?.addEventListener('click', () => restoreHappyFlowCards(section));
     document.getElementById('btnHFPdf')?.addEventListener('click', () => downloadHappyFlowPdf(results, flowType));
     document.getElementById('btnHFScript')?.addEventListener('click', () => downloadHappyFlowScript(results, flowType));
+    document.getElementById('btnHFScriptPW')?.addEventListener('click', () => downloadHappyFlowPlaywrightScript(results, flowType));
+    document.getElementById('btnHFDownloadVideo')?.addEventListener('click', async () => {
+      // Try 1: Download from video segments metadata (has dataUrl or idbKey)
+      const validSegments = (results.videoSegments || []).filter((s) => s.dataUrl || s.idbKey || s.savedToIdb || s.hasData);
+      if (validSegments.length) {
+        await downloadVideoSegments(validSegments, `${flowType}-flow`);
+        return;
+      }
+
+      // Try 2: Scan IDB for any __hf_segment_* or __latest_recording keys
+      try {
+        const allKeys = await getAllVideoKeysFromDb();
+        const segKeys = allKeys.filter((k) => typeof k === 'string' && (k.startsWith('__hf_segment_') || k === '__latest_recording'));
+        if (segKeys.length) {
+          let downloaded = 0;
+          for (let i = 0; i < segKeys.length; i++) {
+            const videoData = await getVideoFromDb(segKeys[i]);
+            if (videoData?.blob) {
+              const url = URL.createObjectURL(videoData.blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${flowType}-flow-recording-${i + 1}.webm`;
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 5000);
+              downloaded++;
+            }
+          }
+          if (downloaded > 0) {
+            toast(`${downloaded} video${downloaded > 1 ? 's' : ''} downloaded`, 'success');
+            return;
+          }
+        }
+      } catch { /* IDB scan failed */ }
+
+      toast('No video recordings captured — video recording requires an active browser tab', 'error');
+    });
 
     // Wire inline video download buttons
     if (hasVideos) {
       document.querySelectorAll('.hf-inline-video-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           const idx = parseInt(btn.dataset.segIdx, 10);
           const seg = results.videoSegments[idx];
+          const filename = `${flowType}-recording-${idx + 1}.webm`;
           if (seg?.dataUrl) {
-            downloadDataUrl(seg.dataUrl, `${flowType}-recording-${idx + 1}.webm`);
+            downloadDataUrl(seg.dataUrl, filename);
             toast('Video downloaded', 'success');
+          } else if (seg?.idbKey || seg?.savedToIdb || seg?.hasData) {
+            try {
+              const videoData = await getVideoFromDb(seg.idbKey || '__latest_recording');
+              if (videoData?.blob) {
+                const url = URL.createObjectURL(videoData.blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                toast('Video downloaded', 'success');
+              } else {
+                toast('Video not found in storage', 'error');
+              }
+            } catch { toast('Failed to load video', 'error'); }
           }
         });
       });
@@ -1610,17 +1876,74 @@
     toast('Test script downloaded & saved to Suites', 'success');
   }
 
-  function downloadVideoSegments(segments, label) {
+  function downloadHappyFlowPlaywrightScript(results, flowType) {
+    const code = generateHappyFlowPlaywrightCode(results, flowType);
+    const safeName = `happy-flow-${flowType}-${Date.now()}`;
+    downloadText(code, `${safeName}.spec.js`);
+    saveSuite(`Happy Flow (Playwright): ${flowType}`, code, 'happy-flow');
+    toast('Playwright script downloaded & saved to Suites', 'success');
+  }
+
+  async function downloadVideoSegments(segments, label) {
     if (!segments || !segments.length) {
       toast('No video recordings available', 'error');
       return;
     }
+    let downloaded = 0;
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
+      if (seg.failed && !seg.dataUrl && !seg.savedToIdb && !seg.hasData) continue; // Skip known-failed segments
       const segLabel = seg.label ? seg.label.replace(/[^a-z0-9-_]/gi, '_').slice(0, 40) : `segment-${i + 1}`;
-      downloadDataUrl(seg.dataUrl, `${label || 'recording'}-${segLabel}.webm`);
+      const filename = `${label || 'recording'}-${segLabel}.webm`;
+
+      if (seg.dataUrl) {
+        downloadDataUrl(seg.dataUrl, filename);
+        downloaded++;
+      } else if (seg.idbKey || seg.savedToIdb || seg.hasData) {
+        // Load from IndexedDB using segment-specific key or fallback
+        try {
+          const videoData = await getVideoFromDb(seg.idbKey || '__latest_recording');
+          if (videoData?.blob) {
+            const url = URL.createObjectURL(videoData.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            downloaded++;
+          }
+        } catch (e) {
+          console.warn(`[Video] Failed to load segment ${i} from IDB:`, e);
+        }
+      }
     }
-    toast(`${segments.length} video${segments.length > 1 ? 's' : ''} downloaded`, 'success');
+    if (downloaded > 0) {
+      toast(`${downloaded} video${downloaded > 1 ? 's' : ''} downloaded`, 'success');
+    } else {
+      // Final fallback: scan IDB for any segment keys
+      try {
+        const allKeys = await getAllVideoKeysFromDb();
+        const segKeys = allKeys.filter((k) => typeof k === 'string' && k.startsWith('__hf_segment_'));
+        let fallbackCount = 0;
+        for (const key of segKeys) {
+          const videoData = await getVideoFromDb(key);
+          if (videoData?.blob) {
+            const url = URL.createObjectURL(videoData.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${label || 'recording'}-segment-${fallbackCount + 1}.webm`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            fallbackCount++;
+          }
+        }
+        if (fallbackCount > 0) {
+          toast(`${fallbackCount} video${fallbackCount > 1 ? 's' : ''} recovered from storage`, 'success');
+          return;
+        }
+      } catch { /* IDB scan failed */ }
+      toast('No video recordings could be loaded', 'error');
+    }
   }
 
   function generateHappyFlowTestCode(results, flowType) {
@@ -1804,6 +2127,181 @@
         lines.push(`      // Sitemap had ${sm.totalUrls} URLs during happy flow`);
       }
       lines.push(`    }, 15000);`);
+      lines.push(`  });`);
+      lines.push('');
+    }
+
+    lines.push(`});`);
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ── Happy Flow Playwright Code Generator ── */
+  function generateHappyFlowPlaywrightCode(results, flowType) {
+    const steps = results.steps || [];
+    const baseUrl = escJsStr(results.url || '');
+    const lines = [];
+
+    lines.push(`const { test, expect } = require('@playwright/test');`);
+    lines.push('');
+    lines.push(`/**`);
+    lines.push(` * Happy Flow: ${flowType} — auto-generated by Playwright Pilot`);
+    lines.push(` * Base URL: ${results.url || ''}`);
+    lines.push(` * Generated: ${new Date().toISOString()}`);
+    lines.push(` * Steps: ${steps.length} (${steps.filter((s) => s.pass).length} passed, ${steps.filter((s) => !s.pass).length} failed)`);
+    lines.push(` */`);
+    lines.push('');
+    lines.push(`test.describe('Happy Flow — ${flowType}', () => {`);
+    lines.push(`  const BASE_URL = '${baseUrl}';`);
+    lines.push(`  test.use({ viewport: { width: 1280, height: 720 } });`);
+    lines.push('');
+
+    const visitSteps = steps.filter((s) => s.type === 'visit-page');
+    const linkSteps = steps.filter((s) => s.type === 'link-check');
+    const formSteps = steps.filter((s) => s.type === 'form-test');
+    const loginSteps = steps.filter((s) => s.type === 'login' || s.type === 'find-login-page');
+    const sitemapSteps = steps.filter((s) => s.type === 'sitemap' || s.type === 'sitemap-found');
+
+    // Navigation tests
+    if (visitSteps.length) {
+      lines.push(`  test.describe('Page Navigation', () => {`);
+      for (const step of visitSteps) {
+        const url = escJsStr(step.url || '');
+        const title = escJsStr(step.title || step.url || 'page');
+        lines.push(`    test('should load: ${title.slice(0, 60)}', async ({ page }) => {`);
+        lines.push(`      const res = await page.goto('${url}', { waitUntil: 'networkidle', timeout: 30000 });`);
+        lines.push(`      expect(res.status()).toBeLessThan(400);`);
+        if (step.title) {
+          lines.push(`      await expect(page).toHaveTitle(/.+/);`);
+        }
+        if (step.audit?.seo?.score != null) {
+          lines.push(`      // SEO score was ${step.audit.seo.score}/100 during happy flow`);
+        }
+        lines.push(`    });`);
+        lines.push('');
+      }
+      lines.push(`  });`);
+      lines.push('');
+    }
+
+    // Link check tests
+    if (linkSteps.length) {
+      lines.push(`  test.describe('Internal Links', () => {`);
+      const uniqueLinks = [];
+      const seen = new Set();
+      for (const step of linkSteps) {
+        if (step.url && !seen.has(step.url)) {
+          seen.add(step.url);
+          uniqueLinks.push(step);
+        }
+      }
+      for (const step of uniqueLinks.slice(0, 50)) {
+        const url = escJsStr(step.url || '');
+        const text = escJsStr(step.text || step.url || 'link');
+        lines.push(`    test('link: ${text.slice(0, 50)}', async ({ page }) => {`);
+        lines.push(`      const res = await page.goto('${url}', { waitUntil: 'domcontentloaded', timeout: 15000 });`);
+        lines.push(`      expect(res.status()).toBeLessThan(400);`);
+        lines.push(`    });`);
+        lines.push('');
+      }
+      lines.push(`  });`);
+      lines.push('');
+    }
+
+    // Form tests
+    if (formSteps.length) {
+      lines.push(`  test.describe('Form Submission', () => {`);
+      for (let i = 0; i < formSteps.length; i++) {
+        const step = formSteps[i];
+        const formId = escJsStr(step.formId || `form-${i + 1}`);
+        lines.push(`    test('should test ${formId}', async ({ page }) => {`);
+        lines.push(`      await page.goto(BASE_URL, { waitUntil: 'networkidle' });`);
+        if (step.formId) {
+          lines.push(`      const form = page.locator('form#${escJsStr(step.formId)}');`);
+        } else {
+          lines.push(`      const form = page.locator('form').first();`);
+        }
+        lines.push(`      await expect(form).toBeVisible();`);
+        lines.push('');
+        lines.push(`      // Fill form fields with test data`);
+        lines.push(`      for (const input of await form.locator('input:not([type="hidden"]):not([type="submit"])').all()) {`);
+        lines.push(`        const type = await input.getAttribute('type') || 'text';`);
+        lines.push(`        if (type === 'email') await input.fill('test@example.com');`);
+        lines.push(`        else if (type === 'password') await input.fill('TestPass123!');`);
+        lines.push(`        else if (type === 'text') await input.fill('Test input');`);
+        lines.push(`        else if (type === 'tel') await input.fill('+1234567890');`);
+        lines.push(`        else if (type === 'number') await input.fill('42');`);
+        lines.push(`      }`);
+        lines.push('');
+        lines.push(`      // Submit form`);
+        lines.push(`      const submit = form.locator('[type="submit"], button:not([type="button"])').first();`);
+        lines.push(`      if (await submit.count()) await submit.click();`);
+        lines.push(`      await page.waitForLoadState('networkidle').catch(() => {});`);
+        if (step.validationErrors?.length) {
+          lines.push(`      // Note: ${step.validationErrors.length} validation errors were found during happy flow`);
+        }
+        lines.push(`    });`);
+        lines.push('');
+      }
+      lines.push(`  });`);
+      lines.push('');
+    }
+
+    // Login flow tests
+    if (loginSteps.length) {
+      const loginPage = loginSteps.find((s) => s.type === 'find-login-page');
+      const loginAttempt = loginSteps.find((s) => s.type === 'login');
+      lines.push(`  test.describe('Login Flow', () => {`);
+      if (loginPage) {
+        lines.push(`    test('should find the login page', async ({ page }) => {`);
+        lines.push(`      const res = await page.goto('${escJsStr(loginPage.url || '')}', { waitUntil: 'networkidle' });`);
+        lines.push(`      expect(res.status()).toBeLessThan(400);`);
+        lines.push(`      const emailField = page.locator('input[type="email"], input[name="email"], input[name="username"]').first();`);
+        lines.push(`      await expect(emailField).toBeVisible();`);
+        lines.push(`    });`);
+        lines.push('');
+      }
+      if (loginAttempt) {
+        lines.push(`    test('should login with test credentials', async ({ page }) => {`);
+        if (loginPage?.url) {
+          lines.push(`      await page.goto('${escJsStr(loginPage.url)}', { waitUntil: 'networkidle' });`);
+        }
+        lines.push(`      const emailField = page.locator('input[type="email"], input[name="email"], input[name="username"]').first();`);
+        lines.push(`      const passField = page.locator('input[type="password"]').first();`);
+        lines.push(`      await expect(emailField).toBeVisible();`);
+        lines.push(`      await expect(passField).toBeVisible();`);
+        lines.push('');
+        lines.push(`      await emailField.fill(process.env.TEST_EMAIL || 'test@example.com');`);
+        lines.push(`      await passField.fill(process.env.TEST_PASSWORD || 'password');`);
+        lines.push('');
+        lines.push(`      const submitBtn = page.locator('button[type="submit"], input[type="submit"]').first();`);
+        lines.push(`      if (await submitBtn.count()) await submitBtn.click();`);
+        lines.push(`      await page.waitForLoadState('networkidle').catch(() => {});`);
+        if (loginAttempt.pass) {
+          lines.push(`      // Login was successful during happy flow`);
+        } else {
+          lines.push(`      // Note: login failed during happy flow: ${escJsStr(loginAttempt.loginError || loginAttempt.error || '')}`);
+        }
+        lines.push(`    });`);
+        lines.push('');
+      }
+      lines.push(`  });`);
+      lines.push('');
+    }
+
+    // Sitemap test
+    if (sitemapSteps.length) {
+      const sm = sitemapSteps[0];
+      lines.push(`  test.describe('Sitemap', () => {`);
+      lines.push(`    test('should have an accessible sitemap', async ({ page }) => {`);
+      lines.push(`      const res = await page.goto(BASE_URL + '/sitemap.xml', { waitUntil: 'networkidle', timeout: 10000 });`);
+      lines.push(`      expect(res.status()).toBeLessThan(400);`);
+      lines.push(`      const content = await page.content();`);
+      lines.push(`      expect(content).toContain('<urlset');`);
+      if (sm.totalUrls) {
+        lines.push(`      // Sitemap had ${sm.totalUrls} URLs during happy flow`);
+      }
+      lines.push(`    });`);
       lines.push(`  });`);
       lines.push('');
     }
@@ -2330,18 +2828,42 @@ ${pageAudits.length ? `<div class="scores-row">${scoreRing(avgSeo, 'Avg SEO')}${
     });
     $('#btnExportRecording').addEventListener('click', () => {
       const code = generatePlaywrightCode(recordedSteps, getRecordOptions());
-      const filename = `recorded-test-${Date.now()}.test.js`;
+      const ext = isPlaywrightFw(getSelectedFramework()) ? '.spec.js' : '.test.js';
+      const filename = `recorded-test-${Date.now()}${ext}`;
       downloadText(code, filename);
 
       // Also save to suites
       saveSuite(`Recorded ${new Date().toLocaleString()}`, code, 'recorder');
     });
+    $('#btnExportRecordingPW')?.addEventListener('click', () => {
+      const code = generatePlaywrightNativeCode(recordedSteps, getRecordOptions(), 'playwright-test');
+      downloadText(code, `recorded-test-${Date.now()}.spec.js`);
+      saveSuite(`Recorded (Playwright) ${new Date().toLocaleString()}`, code, 'recorder');
+    });
 
     // Video recording download
-    $('#btnDownloadRecordingVideo')?.addEventListener('click', () => {
+    $('#btnDownloadRecordingVideo')?.addEventListener('click', async () => {
       if (recorderVideoDataUrl) {
         downloadDataUrl(recorderVideoDataUrl, `recording-${Date.now()}.webm`);
         toast('Video downloaded', 'success');
+        return;
+      }
+      // Fallback: try loading from IndexedDB
+      try {
+        const videoData = await getVideoFromDb('__latest_recording');
+        if (videoData?.blob) {
+          const url = URL.createObjectURL(videoData.blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `recording-${Date.now()}.webm`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          toast('Video downloaded', 'success');
+        } else {
+          toast('No video recording found', 'error');
+        }
+      } catch (e) {
+        toast('Failed to load video recording', 'error');
       }
     });
 
@@ -2358,8 +2880,15 @@ ${pageAudits.length ? `<div class="scores-row">${scoreRing(avgSeo, 'Avg SEO')}${
     });
     $('#btnExportPreview').addEventListener('click', () => {
       const code = $('#previewCode code').textContent;
-      downloadText(code, `preview-test-${Date.now()}.test.js`);
+      const ext = isPlaywrightFw(getSelectedFramework()) ? '.spec.js' : '.test.js';
+      downloadText(code, `preview-test-${Date.now()}${ext}`);
       saveSuite(`Recorded ${new Date().toLocaleString()}`, code, 'recorder');
+      closePreview();
+    });
+    $('#btnExportPreviewPW')?.addEventListener('click', () => {
+      const code = generatePlaywrightNativeCode(recordedSteps, getRecordOptions(), 'playwright-test');
+      downloadText(code, `preview-test-${Date.now()}.spec.js`);
+      saveSuite(`Recorded (Playwright) ${new Date().toLocaleString()}`, code, 'recorder');
       closePreview();
     });
 
@@ -2376,8 +2905,15 @@ ${pageAudits.length ? `<div class="scores-row">${scoreRing(avgSeo, 'Avg SEO')}${
     $('#btnExportGen')?.addEventListener('click', () => {
       const code = $('#genCode code').textContent;
       const desc = $('#genDescription').value.trim().slice(0, 30).replace(/[^a-zA-Z0-9_ ]/g, '').replace(/\s+/g, '-').toLowerCase();
-      downloadText(code, `${desc || 'ai-test'}-${Date.now()}.test.js`);
+      const ext = isPlaywrightFw(getSelectedFramework()) ? '.spec.js' : '.test.js';
+      downloadText(code, `${desc || 'ai-test'}-${Date.now()}${ext}`);
       saveSuite(`AI: ${$('#genDescription').value.trim().slice(0, 50)}`, code, 'ai-generated');
+    });
+    $('#btnExportGenPW')?.addEventListener('click', () => {
+      const code = $('#genCode code').textContent;
+      const desc = $('#genDescription').value.trim().slice(0, 30).replace(/[^a-zA-Z0-9_ ]/g, '').replace(/\s+/g, '-').toLowerCase();
+      downloadText(code, `${desc || 'ai-test'}-${Date.now()}.spec.js`);
+      saveSuite(`AI (Playwright): ${$('#genDescription').value.trim().slice(0, 50)}`, code, 'ai-generated');
     });
 
     // Auto-fill URL from active tab

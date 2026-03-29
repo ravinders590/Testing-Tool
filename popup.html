@@ -158,16 +158,25 @@
       <div id="recorderFooter" class="recorder-footer hidden">
         <span id="stepCount" class="step-count">0 steps</span>
         <div class="footer-actions">
-          <button id="btnDownloadRecordingVideo" class="btn btn-outline btn-sm hidden" title="Download video recording">
-            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM6 10.559V5.442a.25.25 0 0 1 .379-.215l4.264 2.559a.25.25 0 0 1 0 .428L6.379 10.773A.25.25 0 0 1 6 10.559Z"/></svg>
-            Video
-          </button>
           <button id="btnPreview" class="btn btn-outline btn-sm">Preview Code</button>
           <button id="btnRunRecording" class="btn btn-success btn-sm" title="Run recorded test in browser">
             <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0m4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215"/></svg>
             Run
           </button>
-          <button id="btnExportRecording" class="btn btn-primary btn-sm">Export .test.js</button>
+        </div>
+        <div class="report-action-bar" style="margin-top:8px">
+          <button id="btnDownloadRecordingVideo" class="btn btn-outline btn-sm hidden" title="Download video recording" style="border-color:var(--red);color:var(--red)">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM6 10.559V5.442a.25.25 0 0 1 .379-.215l4.264 2.559a.25.25 0 0 1 0 .428L6.379 10.773A.25.25 0 0 1 6 10.559Z"/></svg>
+            Download Video
+          </button>
+          <button id="btnExportRecording" class="btn btn-success btn-sm">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            Download .test.js
+          </button>
+          <button id="btnExportRecordingPW" class="btn btn-outline btn-sm" title="Download as Playwright test" style="border-color:#2ea043;color:#2ea043">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            Playwright .spec.js
+          </button>
         </div>
       </div>
     </div>
@@ -190,6 +199,14 @@
         <div class="report-detail-header">
           <button id="btnBackToReports" class="btn btn-outline btn-sm">← Back</button>
           <span id="reportDetailTitle" class="report-detail-title"></span>
+          <button id="btnExportReportTestJs" class="btn btn-success btn-sm hidden">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            .test.js
+          </button>
+          <button id="btnExportReportSpecJs" class="btn btn-outline btn-sm hidden" style="border-color:#2ea043;color:#2ea043">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+            .spec.js
+          </button>
           <button id="btnExportReport" class="btn btn-primary btn-sm">
             <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
             Export PDF
@@ -216,6 +233,9 @@
             <option value="puppeteer-jest">Puppeteer + Jest (recommended)</option>
             <option value="puppeteer-mocha">Puppeteer + Mocha/Chai</option>
             <option value="puppeteer-basic">Puppeteer (standalone)</option>
+            <option value="playwright-test">Playwright Test</option>
+            <option value="playwright-jest">Playwright + Jest</option>
+            <option value="playwright-basic">Playwright (standalone)</option>
           </select>
         </div>
         <div class="gen-options">
@@ -255,6 +275,10 @@
               Run
             </button>
             <button id="btnExportGen" class="btn btn-primary btn-sm">Export .test.js</button>
+            <button id="btnExportGenPW" class="btn btn-outline btn-sm" title="Download as Playwright test">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+              Playwright .spec.js
+            </button>
           </div>
         </div>
         <pre id="genCode" class="code-block"><code></code></pre>
@@ -396,6 +420,10 @@
           Run
         </button>
         <button id="btnExportPreview" class="btn btn-primary btn-sm">Export .test.js</button>
+        <button id="btnExportPreviewPW" class="btn btn-outline btn-sm" title="Download as Playwright test">
+          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>
+          Playwright .spec.js
+        </button>
       </div>
     </div>
   </div>
