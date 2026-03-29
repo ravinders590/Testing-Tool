@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Playwright Pilot",
+  "name": "AI Testing Tools",
   "version": "1.0.0",
   "description": "Record browser interactions, generate Playwright E2E test scripts with AI, manage test suites, and export production-ready .spec.ts files.",
   "permissions": ["storage", "unlimitedStorage", "activeTab", "scripting", "tabs", "downloads", "alarms", "offscreen"],
@@ -12,7 +12,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Playwright Pilot"
+    "default_title": "AI Testing Tools"
   },
   "options_page": "options.html",
   "icons": {

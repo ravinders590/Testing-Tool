@@ -524,24 +524,24 @@ async function startTabRecording(tabId) {
 
     await ensureOffscreenDocument();
 
-    // Initialize canvas-based video recorder in offscreen document
+    // Initialize canvas-based video recorder in offscreen document (1080p for high-quality .webm)
     const initResp = await chrome.runtime.sendMessage({
       type: 'OFFSCREEN_INIT_VIDEO',
-      width: 1280,
-      height: 720,
+      width: 1920,
+      height: 1080,
     });
     if (initResp?.error) {
       console.warn('[Video] Init recording failed:', initResp.error);
       return false;
     }
 
-    // Capture first frame immediately
+    // Capture first frame immediately (high quality)
     try {
-      const frame = await chrome.tabs.captureVisibleTab(tabInfo.windowId, { format: 'jpeg', quality: 70 });
+      const frame = await chrome.tabs.captureVisibleTab(tabInfo.windowId, { format: 'jpeg', quality: 92 });
       chrome.runtime.sendMessage({ type: 'OFFSCREEN_ADD_FRAME', dataUrl: frame }).catch(() => {});
     } catch { /* first frame optional */ }
 
-    // Start interval capture at ~2 FPS
+    // Start interval capture at ~4 FPS for smoother high-quality video
     screenCapture.active = true;
     screenCapture.tabId = tabId;
     screenCapture.windowId = tabInfo.windowId;
@@ -555,12 +555,12 @@ async function startTabRecording(tabId) {
         // Re-read tab to get current windowId (may have changed)
         const tab = await chrome.tabs.get(screenCapture.tabId);
         if (!tab) return;
-        const frame = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 70 });
+        const frame = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 92 });
         chrome.runtime.sendMessage({ type: 'OFFSCREEN_ADD_FRAME', dataUrl: frame }).catch(() => {});
       } catch {
         // Tab closed, not visible, or capture failed — skip this frame
       }
-    }, 500);
+    }, 250);
 
     return true;
   } catch (err) {

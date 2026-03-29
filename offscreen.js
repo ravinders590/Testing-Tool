@@ -79,11 +79,11 @@ async function initVideoRecording(width, height) {
   canvasCtx.fillStyle = '#1a1a2e';
   canvasCtx.fillRect(0, 0, width, height);
 
-  const stream = videoCanvas.captureStream(4); // Up to 4 FPS
+  const stream = videoCanvas.captureStream(10); // Up to 10 FPS for smoother playback
   recordedChunks = [];
 
-  // Choose a supported mimeType (cross-browser)
-  const mimeTypes = ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  // Choose a supported mimeType — prefer VP9 for higher quality .webm
+  const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
   let mimeType = '';
   for (const mt of mimeTypes) {
     if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
@@ -92,7 +92,7 @@ async function initVideoRecording(width, height) {
 
   mediaRecorder = new MediaRecorder(stream, {
     mimeType,
-    videoBitsPerSecond: 1_500_000,
+    videoBitsPerSecond: 5_000_000,
   });
 
   mediaRecorder.ondataavailable = (e) => {
