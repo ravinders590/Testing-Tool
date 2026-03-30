@@ -2517,9 +2517,25 @@ ${pageAudits.length ? `<div class="scores-row">${scoreRing(avgSeo, 'Avg SEO')}${
               </svg>
               <span class="hf-title">Running flow… (resumed)</span>
             </div>
+            <div class="hf-recording-badge" style="display:flex;align-items:center;gap:6px;margin:6px 0;padding:4px 8px;background:rgba(255,0,0,0.08);border-radius:6px;font-size:11px;color:var(--red)">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse-rec 1.2s infinite"></span>
+              Recording video…
+            </div>
             <div class="audit-progress" style="margin:8px 0"><div class="audit-progress-bar" style="width:50%"></div></div>
             <div id="hfLogArea" class="audit-log" style="max-height:200px;overflow-y:auto;font-size:11px;margin:8px 0"></div>
+            <div style="margin-top:8px;text-align:center">
+              <button id="btnHFStop" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
+                Stop &amp; Generate Report
+              </button>
+            </div>
           </div>`;
+        // Wire up stop button
+        document.getElementById('btnHFStop')?.addEventListener('click', () => {
+          const btn = document.getElementById('btnHFStop');
+          if (btn) { btn.disabled = true; btn.textContent = 'Stopping…'; }
+          chrome.runtime.sendMessage({ type: 'ABORT_HAPPY_FLOW' }, () => void chrome.runtime.lastError);
+        });
         hfPolling = true;
         pollHappyFlow(section, flowType);
         return;
